@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Wall Street Walking Tour</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #111; color: #fff; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+  #map { flex: 1; width: 100%; }
+
+  /* Top bar */
+  #topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 100; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%); pointer-events: none; }
+  #topbar h1 { font-size: 15px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+  #topbar .meta { font-size: 11px; color: rgba(255,255,255,0.7); text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+  #route-total { margin-top: 2px; max-width: 220px; }
+
+  /* Route toggle */
+  #controls { position: absolute; top: 60px; right: 12px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+  .ctrl-btn { width: 42px; height: 42px; border-radius: 12px; background: rgba(20,20,20,0.92); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+  .ctrl-btn:active { transform: scale(0.93); }
+  .ctrl-btn.active { background: rgba(255,215,0,0.25); border-color: rgba(255,215,0,0.6); }
+
+  /* Progress bar */
+  #progress-bar { position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 200; background: rgba(255,255,255,0.1); }
+  #progress-fill { height: 100%; background: #FFD700; transition: width 0.4s ease; width: 0%; }
+
+  /* Bottom sheet */
+  #sheet { position: absolute; bottom: 0; left: 0; right: 0; z-index: 200; background: #111; border-radius: 20px 20px 0 0; border-top: 1px solid rgba(255,255,255,0.1); transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1); max-height: 75dvh; display: flex; flex-direction: column; }
+  #sheet.open { transform: translateY(0); }
+  #sheet-handle { width: 36px; height: 4px; background: rgba(255,255,255,0.25); border-radius: 2px; margin: 10px auto 0; flex-shrink: 0; }
+  #sheet-header { padding: 12px 20px 10px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  #sheet-num { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: #FFD700; text-transform: uppercase; margin-bottom: 2px; }
+  #sheet-title { font-size: 20px; font-weight: 700; line-height: 1.2; }
+  #sheet-subtitle { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  #sheet-body { overflow-y: auto; padding: 16px 20px 32px; flex: 1; -webkit-overflow-scrolling: touch; }
+  #sheet-body h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #FFD700; margin: 14px 0 6px; }
+  #sheet-body h3:first-child { margin-top: 0; }
+  #sheet-body p { font-size: 14px; line-height: 1.65; color: rgba(255,255,255,0.82); margin-bottom: 10px; }
+  #sheet-body ul { margin: 4px 0 12px 18px; color: rgba(255,255,255,0.82); font-size: 14px; line-height: 1.55; }
+  #sheet-body li { margin-bottom: 6px; }
+  #sheet-body .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  #sheet-body .tag { font-size: 11px; padding: 3px 10px; border-radius: 100px; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.12); }
+  #sheet-body .tag.finance { background: rgba(64,196,255,0.12); color: #73d2ff; border-color: rgba(64,196,255,0.35); }
+  #sheet-body .tag.food { background: rgba(126,217,87,0.12); color: #9df578; border-color: rgba(126,217,87,0.35); }
+  #sheet-nav { padding: 10px 16px 16px; display: flex; gap: 8px; flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.08); }
+  #sheet-nav button { flex: 1; padding: 11px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; }
+  #sheet-nav button:active { transform: scale(0.97); }
+  #sheet-nav button.primary { background: #FFD700; color: #000; border-color: #FFD700; }
+  #sheet-close { position: absolute; top: 14px; right: 16px; width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.6); font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+  /* List overlay */
+  #list-overlay { position: absolute; inset: 0; z-index: 300; background: #111; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1); display: flex; flex-direction: column; }
+  #list-overlay.open { transform: translateY(0); }
+  #list-header { padding: 52px 20px 12px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; }
+  #list-header h2 { font-size: 18px; font-weight: 700; }
+  #list-header button { padding: 7px 14px; border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 13px; cursor: pointer; }
+  #tour-summary { padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.035); }
+  #tour-summary .summary-title { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #FFD700; text-transform: uppercase; margin-bottom: 6px; }
+  #tour-summary p { font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.76); }
+  #list-scroll { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+  .list-item { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; }
+  .list-item:active { background: rgba(255,255,255,0.04); }
+  .list-num { width: 32px; height: 32px; border-radius: 50%; background: #FFD700; color: #000; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .list-num.visited { background: rgba(255,215,0,0.2); color: #FFD700; }
+  .list-info { flex: 1; min-width: 0; }
+  .list-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-type { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 1px; }
+  .list-num.finance { background: #40C4FF; color: #001018; }
+  .list-num.finance.visited { background: rgba(64,196,255,0.18); color: #73d2ff; border: 1px solid rgba(64,196,255,0.45); }
+  .list-num.food { background: #7ED957; color: #071800; }
+  .list-num.food.visited { background: rgba(126,217,87,0.18); color: #9df578; border: 1px solid rgba(126,217,87,0.45); }
+  .list-section { padding: 14px 20px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+  .list-chev { color: rgba(255,255,255,0.25); font-size: 16px; }
+
+  /* GPS status */
+  #gps-dot { width: 8px; height: 8px; border-radius: 50%; background: #4CAF50; box-shadow: 0 0 0 0 rgba(76,175,80,0.4); animation: pulse 2s infinite; display: inline-block; margin-right: 5px; }
+  #gps-dot.searching { background: #FF9800; box-shadow: 0 0 0 0 rgba(255,152,0,0.4); }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76,175,80,0.4); } 70% { box-shadow: 0 0 0 8px rgba(76,175,80,0); } 100% { box-shadow: 0 0 0 0 rgba(76,175,80,0); } }
+
+  /* Toast */
+  #toast { position: absolute; top: 60px; left: 50%; transform: translateX(-50%) translateY(-80px); z-index: 400; background: rgba(30,30,30,0.95); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 10px 18px; font-size: 13px; color: #fff; white-space: nowrap; transition: transform 0.3s ease; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"><div id="progress-fill"></div></div>
+
+<div id="topbar">
+  <div>
+    <h1>Wall Street Tour</h1>
+    <div class="meta"><span id="gps-dot" class="searching"></span><span id="gps-status">Locating…</span></div>
+    <div class="meta" id="route-total">Route: calculating...</div>
+    <div class="meta" id="build-version">Build: route-v3</div>
+  </div>
+  <div class="meta" id="stop-counter">0 / 18 stops</div>
+</div>
+
+<div id="map"></div>
+
+<div id="controls">
+  <div class="ctrl-btn" id="btn-locate" title="Center on me" onclick="centerOnMe()">📍</div>
+  <div class="ctrl-btn" id="btn-route" title="Toggle route" onclick="toggleRoute()">🗺️</div>
+  <div class="ctrl-btn" id="btn-list" title="All stops" onclick="openList()">☰</div>
+</div>
+
+<div id="sheet">
+  <div id="sheet-handle"></div>
+  <button id="sheet-close" onclick="closeSheet()">✕</button>
+  <div id="sheet-header">
+    <div id="sheet-num"></div>
+    <div id="sheet-title"></div>
+    <div id="sheet-subtitle"></div>
+  </div>
+  <div id="sheet-body"></div>
+  <div id="sheet-nav">
+    <button id="btn-prev" onclick="navStop(-1)">← Prev</button>
+    <button class="primary" id="btn-directions" onclick="openDirections()">Directions ↗</button>
+    <button id="btn-next" onclick="navStop(1)">Next →</button>
+  </div>
+</div>
+
+<div id="list-overlay">
+  <div id="list-header">
+    <h2>All Stops</h2>
+    <button onclick="closeList()">Close</button>
+  </div>
+  <div id="tour-summary">
+    <div class="summary-title">Full Walking Tour</div>
+    <p id="tour-summary-copy">Optimized route includes the blue finance stops. Start: Battery Park / South Ferry 1. End: One World Trade / WTC Cortlandt 1, with A/C/E nearby.</p>
+  </div>
+  <div id="list-scroll" id="list-body"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const STOPS = [
+  {
+    id: 1,
+    name: "Fulton Center",
+    type: "Transit Hub",
+    lat: 40.7096, lng: -74.0077,
+    era: "2014",
+    tags: ["11 subway lines", "Sky Reflector Net", "Corbin building"],
+    history: "Opened in 2014 after a $1.4 billion redevelopment of the old Fulton Street subway station complex. The project was partly funded with post-9/11 federal transit aid. The new hub integrates the historic Corbin Building (1889) facade on John Street into the design.",
+    today: "Serves 11 subway lines (A/C, J/Z, 2/3, 4/5, R/W) and connects underground to the World Trade Center PATH via underground walkway. The interior features the 'Sky Reflector Net' — a parabolic mirror installation that reflects natural daylight down into the transit hall.",
+    current: "Open 24/7. The Sky Reflector Net creates dramatic light shows at certain times of day. Look up at the dome interior."
+  },
+  {
+    id: 2,
+    name: "Trinity Church",
+    type: "Episcopal Church & Cemetery",
+    lat: 40.7081, lng: -74.0132,
+    era: "1696",
+    tags: ["Alexander Hamilton buried here", "Third building on this site", "Free to visit"],
+    history: "The first Trinity Church (1698) burned in the Great Fire of 1776. The second (1790) was demolished due to structural weakness. The current Gothic Revival structure opened in 1846 and was the tallest building in Manhattan until 1869. Alexander Hamilton and his wife Eliza are buried in the churchyard, along with Robert Fulton (steamboat inventor) and Albert Gallatin (Treasury Secretary).",
+    today: "An active Episcopal congregation with over 300 years of continuous service. The churchyard is a free outdoor museum with prominent graves marked and described. Hamilton's grave has seen surge in visitors since the 2015 Broadway musical.",
+    current: "Church and cemetery open daily. Free admission. Guided tours available. At the foot of Wall Street on Broadway — the visual anchor of the Financial District streetscape."
+  },
+  {
+    id: 3,
+    name: "One Wall Street",
+    type: "Art Deco Skyscraper / Luxury Condo",
+    lat: 40.7075, lng: -74.0118,
+    era: "1931",
+    tags: ["Art Deco", "Former Irving Trust HQ", "Converted to condos 2022"],
+    history: "Completed in 1931 as headquarters for Irving Trust Company. Designed by Ralph Walker, the building is widely considered one of the finest Art Deco skyscrapers in New York. The Red Room on the second floor featured striking red-and-gold mosaic tiles — a showpiece of 1930s design.",
+    today: "Converted from office to luxury residential condominiums by Macklowe Properties, completing in 2022. Contains ~566 apartments. The Whole Foods at the base (2023) was the first in lower Manhattan, signaling the neighborhood's residential transformation.",
+    current: "Residential — lobby not publicly accessible. The exterior limestone facade and Art Deco details are visible from Wall Street. Whole Foods on ground floor open to public."
+  },
+  {
+    id: 4,
+    name: "Federal Hall",
+    type: "National Monument",
+    lat: 40.7074, lng: -74.0101,
+    era: "1700",
+    tags: ["First U.S. Capitol", "Washington's inauguration", "Free museum"],
+    history: "The original Federal Hall (1700) was New York's City Hall, then served as the first U.S. Capitol from 1785–1790. George Washington was inaugurated as the first President of the United States here on April 30, 1789. Alexander Hamilton's Federalist Papers were debated within its walls. The current Greek Revival structure dates to 1842 and served as a U.S. Custom House and Sub-Treasury.",
+    today: "A National Memorial managed by the National Park Service. Contains exhibits on Washington's inauguration, the Constitution, and early American government. The bronze Washington statue on the steps (1883) marks the exact spot he took the oath of office.",
+    current: "Free admission. Open Mon–Fri, 9 AM–5 PM. Ranger-led programs available. Closed weekends."
+  },
+  {
+    id: 5,
+    name: "New York Stock Exchange",
+    type: "Financial Exchange",
+    lat: 40.7069, lng: -74.0117,
+    era: "1792",
+    tags: ["Largest exchange by market cap", "~$25T+ listed", "Buttonwood Agreement"],
+    history: "Founded May 17, 1792 under a Buttonwood tree at 68 Wall Street, when 24 brokers signed the Buttonwood Agreement to trade securities. The current Beaux-Arts building at 11 Wall Street opened in 1903. The iconic trading floor featured open-outcry specialists until the shift to electronic trading accelerated after 2000.",
+    today: "The NYSE remains the world's largest stock exchange by market capitalization — over $25 trillion in listed companies. Though 90%+ of trades are now electronic, the trading floor still operates and is used heavily for IPO ceremonies. Intercontinental Exchange (ICE) has owned the NYSE since 2013.",
+    current: "Not open to public. The iconic building facade and Fearless Girl are the visitor draw. IPO bells ring at 9:30 AM and 4:00 PM — audible outside on quiet mornings."
+  },
+  {
+    id: 6,
+    name: "Fearless Girl",
+    type: "Public Sculpture",
+    lat: 40.7069, lng: -74.0113,
+    era: "2017",
+    tags: ["State Street Global Advisors", "Gender diversity", "Financial activism"],
+    history: "Installed March 7, 2017 (International Women's Day eve) by State Street Global Advisors as a campaign to pressure companies to add women to their boards. Originally placed facing the Charging Bull; moved to its current spot in front of the NYSE in 2018 after Di Modica objected.",
+    today: "Now permanently installed on Broad Street facing the NYSE. The statue represents the push for gender diversity in corporate leadership — State Street itself was later fined $5M for paying female and minority executives less than white male peers.",
+    current: "Located on Broad Street in front of the New York Stock Exchange. Free, open 24/7."
+  },
+  {
+    id: 7,
+    name: "23 Wall Street — The House of Morgan",
+    type: "Historic Bank Building",
+    lat: 40.7071, lng: -74.0108,
+    era: "1914",
+    tags: ["J.P. Morgan HQ", "1920 bombing", "Shrapnel scars still visible"],
+    history: "Built in 1914 as headquarters for J.P. Morgan & Co. On September 16, 1920, a horse-drawn cart exploded outside at noon — 38 killed, 143 injured. The shrapnel pockmarks are still visible on the marble facade today; Morgan chose to leave them unrepaired. Known as 'The Corner,' it had no name on the building — Morgan felt his bank was too important to need one.",
+    today: "No longer a bank. The building has changed hands several times and sat largely vacant for years. Recent projects have explored conversion to luxury residences. The shrapnel scars remain a somber memorial on the exterior limestone.",
+    current: "Not publicly accessible inside. The exterior shrapnel damage on the south and east walls is visible from the sidewalk — look closely at the limestone for irregular pitting."
+  },
+  {
+    id: 8,
+    name: "Federal Reserve Bank of New York",
+    type: "Central Bank Branch",
+    lat: 40.7074, lng: -74.0085,
+    era: "1924",
+    tags: ["Largest gold vault on Earth", "~6,000 tons gold", "Free tours"],
+    history: "Opened in 1924, designed by York & Sawyer to resemble a Florentine Renaissance palace. It holds the largest known gold depository on Earth — approximately 6,000 tons of gold bars stored five floors underground, inside bedrock. Most of the gold belongs to foreign governments and central banks, not the U.S. The vault sits on Manhattan's bedrock at 50 feet below street level.",
+    today: "One of 12 Federal Reserve Banks. The New York Fed implements monetary policy by conducting open market operations (buying/selling Treasuries) and serves as fiscal agent for the U.S. Treasury. It supervises major financial institutions and played a central role in 2008 crisis response.",
+    current: "Free public tours available (book weeks in advance at newyorkfed.org). The gold vault tour is the highlight. Museum on-site with exhibits on monetary history and currency detection."
+  },
+  {
+    id: 9,
+    name: "Fraunces Tavern",
+    type: "Historic Tavern & Museum",
+    lat: 40.7033, lng: -74.0113,
+    era: "1719",
+    tags: ["George Washington's farewell", "Oldest surviving building block", "1975 bombing"],
+    history: "Built in 1719 as a residence, converted to a tavern by Samuel Fraunces in 1762. On December 4, 1783, George Washington delivered his famous farewell address to Continental Army officers here as the British evacuation of NYC completed. The building survived a 1975 FALN bombing that killed 4 people and injured 53.",
+    today: "A working restaurant and museum on the ground and upper floors. The Long Room on the second floor is preserved as it appeared in 1783. One of the oldest surviving structures in Manhattan.",
+    current: "Restaurant open daily for lunch and dinner. Museum open Mon–Sat 12–5 PM. Admission ~$7. Located at Pearl & Broad Streets."
+  },
+  {
+    id: 10,
+    name: "55 Water Street",
+    type: "Office Skyscraper",
+    lat: 40.7025, lng: -74.0087,
+    era: "1972",
+    tags: ["Briefly world's largest office building", "2.5M sq ft", "Vietnam Veterans Plaza"],
+    history: "Completed in 1972, it was briefly the world's largest office building by floor area at ~2.5 million square feet. The scale was made possible by air rights purchased from the elevated FDR Drive approach below. Designed by Emery Roth & Sons in the International Style.",
+    today: "Still one of the largest office complexes in NYC. Houses numerous financial firms. The plaza level features the Vietnam Veterans Memorial Plaza with a glass block memorial inscribed with letters from soldiers.",
+    current: "Vietnam Veterans Plaza is publicly accessible. The memorial wall is lit at night. Address: 55 Water Street."
+  },
+  {
+    id: 11,
+    name: "South Street Seaport — Pier 17",
+    type: "Historic Port & Entertainment District",
+    lat: 40.7068, lng: -74.0032,
+    era: "1625",
+    tags: ["Manhattan's first port", "Rooftop concerts", "Historic tall ships"],
+    history: "The original commercial heart of New Amsterdam/New York. The East River waterfront here was the center of maritime trade from the 1600s through the early 1900s, when cargo shifted to West Side piers. The cobblestone streets of Schermerhorn Row (built 1810–1812) survive as one of the finest examples of Federal-period commercial architecture in the U.S.",
+    today: "Redeveloped Pier 17 (opened 2018, designed by SHoP Architects) hosts restaurants, shops, and a rooftop concert venue. Several historic ships, including the tall ship Wavertree (1885), are docked alongside the Seaport Museum's collection.",
+    current: "Seaport Museum open Wed–Sun. Pier 17 open daily with rooftop events in summer. The Fulton Fish Market relocated to the Bronx in 2005 but the neighborhood retains the name."
+  },
+  {
+    id: 12,
+    name: "Bowling Green",
+    type: "Historic Park & Landmark",
+    lat: 40.7037, lng: -74.0139,
+    era: "1733",
+    tags: ["Oldest park in NYC", "King George statue melted into bullets", "Colonial era"],
+    history: "Manhattan's oldest public park, leased in 1733 for one peppercorn per year. During the Revolution, a lead statue of King George III stood here — colonists melted it into bullets after the Declaration of Independence was read aloud nearby in 1776. The iron fence surrounding it (1771) is original.",
+    today: "A small oasis at the foot of Broadway, flanked by the old U.S. Custom House (now the National Museum of the American Indian). The No. 4/5 subway station below is one of the busiest in lower Manhattan.",
+    current: "National Museum of the American Indian occupies the Beaux-Arts Custom House. Free admission. Open daily."
+  },
+  {
+    id: 13,
+    name: "Charging Bull",
+    type: "Public Sculpture",
+    lat: 40.7054, lng: -74.0134,
+    era: "1989",
+    tags: ["Arturo Di Modica", "Guerrilla art installation", "3.5 tons bronze"],
+    history: "Sculptor Arturo Di Modica installed this 3.5-ton bronze bull illegally on December 15, 1989 — a 'guerrilla art' gift to New York after the 1987 Black Monday crash. The NYSE had it towed; public pressure got it reinstalled at Bowling Green days later. Di Modica spent $360,000 of his own money.",
+    today: "One of the most photographed objects in the world. Symbolizes the aggressive optimism of Wall Street bulls. The city has allowed it to remain as a permanent installation despite its unauthorized origin.",
+    current: "Open 24/7. Expect crowds and a line for photos. Located at the northern tip of Bowling Green on Broadway."
+  },
+  {
+    id: 14,
+    name: "Battery Park & Castle Clinton",
+    type: "Historic Fort & Park",
+    lat: 40.7004, lng: -74.0167,
+    era: "1811",
+    tags: ["Ferry to Statue of Liberty", "8M immigrants processed", "Free monument"],
+    history: "Battery Park sits on landfill at Manhattan's southern tip. Castle Clinton, built 1811 as a fort (never fired a shot in war), became a concert venue (Jenny Lind performed here in 1850), then New York's immigrant processing center before Ellis Island opened (1892) — nearly 8 million people entered America through it. Later an aquarium before the National Park Service took over.",
+    today: "The park is a 25-acre green space with views of New York Harbor, Ellis Island, and the Statue of Liberty. The Staten Island Ferry terminal is adjacent — the free ferry offers the best views of the harbor. Castle Clinton is a free National Monument within the park.",
+    current: "Free and open daily. Castle Clinton open 7:30 AM–5 PM. Ferry to Statue of Liberty and Ellis Island departs from Battery Park — tickets required (book in advance). Staten Island Ferry free, 24/7."
+  },
+  {
+    id: 15,
+    name: "Goldman Sachs HQ",
+    type: "Investment Bank Headquarters",
+    lat: 40.7143, lng: -74.0133,
+    era: "2010",
+    tags: ["$47B+ revenue (2024)", "LEED-certified tower", "West Street campus"],
+    history: "Goldman Sachs was founded in 1869 by Marcus Goldman as a commercial paper business. Moved to 200 West Street (completed 2010) after decades on Broad Street. The $2.1 billion LEED-certified tower was one of the largest private construction projects in post-9/11 downtown Manhattan.",
+    today: "Goldman remains one of the most profitable investment banks globally. Revenue exceeded $47 billion in 2024. Known for advisory, asset management, and trading. Under CEO David Solomon (since 2018), the firm has refocused on core Wall Street strengths after a consumer banking experiment (Marcus) largely wound down.",
+    current: "Headquarters at 200 West Street. Not publicly accessible. The building's glass exterior is visible from West Street / Hudson River Park nearby."
+  },
+  {
+    id: 16,
+    name: "9/11 Memorial & Museum",
+    type: "Memorial & Museum",
+    lat: 40.7115, lng: -74.0117,
+    era: "2011 / 2014",
+    tags: ["2,977 names", "Reflecting pools in tower footprints", "Book tickets in advance"],
+    history: "The memorial was designed by Michael Arad and Peter Walker, featuring two massive reflecting pools — 'Reflecting Absence' — set in the footprints of the original Twin Towers. Nearly 3,000 names are inscribed in bronze around the edges. The underground museum (opened 2014) houses artifacts including a section of the original antenna, the last steel column, and extensive first-person accounts.",
+    today: "One of the most visited sites in the U.S., with millions of visitors annually. The memorial pools are surrounded by 400 swamp white oak trees. The museum contains over 10,000 artifacts and thousands of photographs and oral histories.",
+    current: "Memorial (outdoor pools) free, open 7:30 AM–9 PM daily. Museum admission ~$30. Last entry 2 hours before close. Book timed tickets online to avoid long waits."
+  },
+  {
+    id: 17,
+    name: "The Oculus / WTC Transportation Hub",
+    type: "Transit Hub & Mall",
+    lat: 40.7115, lng: -74.0128,
+    era: "2016",
+    tags: ["Santiago Calatrava", "$4B cost", "PATH + subway nexus"],
+    history: "Designed by Santiago Calatrava and opened in 2016 after years of delays and cost overruns — originally budgeted at $2.2B, final cost reached ~$4B, making it one of the most expensive transit stations ever built. The white ribbed structure is meant to evoke a bird in flight, or a child releasing a dove for peace.",
+    today: "Connects the PATH train (to New Jersey) with the NYC subway and Brookfield Place. The Oculus mall inside contains about 100 retail shops. On September 11 each year at 10:28 AM — when the second tower fell — sunlight shines directly through a skylight the length of the spine.",
+    current: "Open daily. Transit hub 24/7. Shops open ~10 AM–9 PM. The interior white spine is worth seeing — scale is extraordinary."
+  },
+  {
+    id: 18,
+    name: "One World Trade Center",
+    type: "Skyscraper & Observatory",
+    lat: 40.7127, lng: -74.0134,
+    era: "2014",
+    tags: ["Tallest in Western Hemisphere", "1,776 ft symbolic height", "One World Observatory"],
+    history: "Designed by David Childs/Skidmore Owings & Merrill, the building's 1,776-foot height symbolizes the year of American independence. Construction began in 2006 and the building opened in 2014. The original twin towers, destroyed on September 11, 2001, sat 400 feet to the south. The 9/11 attacks killed 2,977 people.",
+    today: "At 1,776 feet, it remains the tallest building in the Western Hemisphere. Houses offices for media companies including Condé Nast. The One World Observatory on floors 100–102 offers 360° views of five states.",
+    current: "One World Observatory open daily 9 AM–9 PM. Tickets ~$42 adults. Book online. The building itself is 1 WTC, World Trade Center complex."
+  }
+];
+
+const FOOD_STOPS = [
+  {
+    id: 27,
+    name: "Start Matcha — Starbucks State St & Pearl",
+    type: "Food Stop / Matcha Latte",
+    lat: 40.7029, lng: -74.0134,
+    era: "Before stop 1",
+    food: true,
+    tags: ["Start drink", "Matcha latte", "By South Ferry"],
+    history: [
+      `This is a practical start marker rather than a history stop: get the matcha latte before committing to the long walking route. Uber Eats showed Matcha Latte, Iced Matcha Latte, and related matcha drinks here, and the location is close to the South Ferry / Battery Park start.`
+    ],
+    today: [
+      `This keeps the first errand frictionless. You can arrive on the 1 at South Ferry, get the drink nearby, then begin the route at Battery Park and Castle Clinton without doubling back.`
+    ],
+    current: [
+      `Use this as the pre-tour caffeine stop. If you want a more cafe-ish alternate and do not mind a detour, Bluestone Lane Battery Park also showed matcha latte options, but it is less directly aligned with the South Ferry start.`
+    ],
+    facts: [
+      `Best role in the tour: quick matcha before the history starts.`,
+      `The route start remains Battery Park, not the cafe itself.`,
+      `Check hours day-of if you are starting very early.`
+    ]
+  },
+  {
+    id: 28,
+    name: "Lunch Panini Stop — The Panini Press",
+    type: "Food Stop / Lunch",
+    lat: 40.7072, lng: -74.0024,
+    era: "About 1 hour in",
+    food: true,
+    tags: ["Lunch target", "Panini fallback", "Near Seaport"],
+    history: [
+      `This is the lunch marker for the "about one hour into the tour" point. I did not find a reliable nearby menu item named exactly "chicken tikka masala panini" in the Financial District / Seaport search results, so this is the practical fallback: a dedicated panini place near the route.`
+    ],
+    today: [
+      `Uber Eats surfaced The Panini Press at 257 Water St in the lunch search around 55 Water Street. It fits the timing better than sending you far off-route for a hypothetical exact tikka masala panini.`
+    ],
+    current: [
+      `Use this as the lunch decision point near the Seaport. If the exact chicken tikka masala panini is non-negotiable, ask at the counter or swap to an Indian lunch nearby; otherwise, this keeps the tour moving and still satisfies the panini part of the craving.`
+    ],
+    facts: [
+      `Placed near the Seaport / Water Street segment so lunch lands around the first-hour zone.`,
+      `Exact chicken tikka masala panini was not verified nearby.`,
+      `Good place to decide whether to eat quickly or take a proper break before the finance-core stretch.`
+    ]
+  }
+];
+
+const FINANCE_STOPS = [
+  {
+    id: 19,
+    name: "120 Broadway — Equitable Building",
+    type: "Finance Deep Dive / Insurance & Regulation",
+    lat: 40.7085, lng: -74.0112,
+    era: "1915",
+    route: false,
+    finance: true,
+    tags: ["Insurance capital", "Zoning history", "Office-tower culture"],
+    history: [
+      `The Equitable Building is one of the most important finance-office buildings in New York, even though it is less famous with tourists than the NYSE. The Equitable Life Assurance Society was part of the rise of insurance as a huge institutional investor, and its buildings helped turn lower Broadway into a corridor of corporate financial power.`,
+      `The current 1915 building was so massive for its site that it became a cautionary tale in urban planning. Its bulk cast deep shadows and helped push New York toward the 1916 Zoning Resolution, the rule system that encouraged setback skyscrapers. In other words, a finance building helped change the shape of the entire Manhattan skyline.`,
+      `For career context, this stop is about the back office and institutional side of finance: insurance companies, law firms, corporate services, and the dense professional ecosystem that surrounds markets. Not everyone on Wall Street works on a trading floor. Much of the industry lives in office towers full of lawyers, analysts, compliance teams, accountants, risk people, and client-service groups.`
+    ],
+    today: [
+      `Today 120 Broadway is a landmark office building with a broad tenant mix rather than a single famous bank headquarters. That actually makes it useful: it represents the ordinary density of the Financial District workplace, where finance-adjacent firms occupy floors above historic lobbies and retail corridors.`,
+      `Standing here also helps you understand why Broadway matters. Wall Street is the brand name, but the work district spills north and south along Broadway, Nassau, Pine, Liberty, Water, and West Streets.`
+    ],
+    current: [
+      `Optional blue-marker add-on near Trinity and Wall Street. Look at its sheer mass from Broadway and imagine the pre-zoning city it helped provoke. This is a strong stop if you care about how finance shaped office architecture and city rules.`
+    ],
+    facts: [
+      `Its size helped influence New York's 1916 zoning reform.`,
+      `Insurance companies were major financial institutions, not just policy sellers.`,
+      `The building explains why the Financial District is as much an office ecosystem as a stock-market symbol.`
+    ]
+  },
+  {
+    id: 20,
+    name: "14 Wall Street — Bankers Trust",
+    type: "Finance Deep Dive / Trust Banking",
+    lat: 40.7072, lng: -74.0106,
+    era: "1912",
+    route: false,
+    finance: true,
+    tags: ["Bankers Trust HQ", "Pyramid roof", "Fiduciary banking"],
+    history: [
+      `14 Wall Street was built for Bankers Trust, a firm whose name points to an important part of finance culture: trust banking. Trust companies managed assets, estates, corporate accounts, securities custody, and fiduciary responsibilities. That world is less cinematic than trading, but it is central to how wealth is stored, transferred, and administered.`,
+      `The tower opened in 1912 with a pyramid roof inspired by the Mausoleum at Halicarnassus. Bankers Trust used the building as a brand image, which makes sense: a trust company needed to look ancient, stable, and almost tomb-like in its permanence. It was selling confidence as much as services.`,
+      `The 1930s annex and later moves show a pattern repeated across Wall Street: institutions grow, merge, move employees into newer towers, and leave behind landmark shells that become multi-tenant office buildings. The building's old identity remains legible even when the original company no longer controls the space.`
+    ],
+    today: [
+      `The building is no longer the operating center of Bankers Trust, which eventually became part of Deutsche Bank. But for someone learning Wall Street geography, it is a key landmark because it sits almost in the middle of the old financial command zone: NYSE, Federal Hall, Morgan, and the Fed are all nearby.`,
+      `It also teaches a career lesson: finance has prestige hierarchies beyond investment banking. Trust, custody, private wealth, corporate banking, and fiduciary work all have their own cultures and histories.`
+    ],
+    current: [
+      `Optional blue marker very close to Federal Hall and 23 Wall. Look for the pyramid roof and the old-bank posture: formal, vertical, and deliberately serious.`
+    ],
+    facts: [
+      `Bankers Trust used the tower as a corporate icon in its own imagery.`,
+      `The pyramid roof made the building instantly recognizable in the early skyline.`,
+      `Trust banking is about fiduciary responsibility: managing assets for someone else's benefit.`
+    ]
+  },
+  {
+    id: 21,
+    name: "40 Wall Street — Bank of Manhattan",
+    type: "Finance Deep Dive / Bank Rivalry & Skyscraper Race",
+    lat: 40.7069, lng: -74.0091,
+    era: "1930",
+    route: false,
+    finance: true,
+    tags: ["Bank of Manhattan", "Skyscraper race", "Great Depression"],
+    history: [
+      `40 Wall Street was built for the Bank of Manhattan Company and opened in 1930, right as the city was racing to build taller and taller towers. It briefly competed for the title of world's tallest building before the Chrysler Building surpassed it. The timing is almost painfully Wall Street: ambition peaked just as the Great Depression was beginning.`,
+      `The lower floors were designed for banking functions, including a grand banking room, boardroom, trading spaces, and vaults. Above that, rentable office floors created the financial logic of the skyscraper: prestige tenant below, income-producing tenants above.`,
+      `The Bank of Manhattan later became part of the Chase lineage through mergers, connecting this building to the larger story of New York banks consolidating into national giants. So the building is not just tall-building trivia; it is part of the genealogy of modern JPMorgan Chase.`
+    ],
+    today: [
+      `The building is now a multi-tenant office property, but its financial meaning remains strong because of its location and origin. It shows how banks used height, speed, and address prestige as competitive tools.`,
+      `For career orientation, this is a reminder that the Wall Street brand is partly real estate. An address can signal credibility, proximity, and history even when the actual firm occupying the floors has changed many times.`
+    ],
+    current: [
+      `Optional blue marker near the Fed and 28 Liberty. Best read from Wall Street or from the east, where the crown helps you understand its place in the old skyline race.`
+    ],
+    facts: [
+      `It opened in the same era as the Chrysler and Empire State buildings.`,
+      `The original banking spaces sat below income-producing tenant floors.`,
+      `The Bank of Manhattan lineage eventually fed into the Chase banking story.`
+    ]
+  },
+  {
+    id: 22,
+    name: "28 Liberty Street — One Chase Manhattan Plaza",
+    type: "Finance Deep Dive / Modern Banking Campus",
+    lat: 40.7079, lng: -74.0086,
+    era: "1961",
+    route: false,
+    finance: true,
+    tags: ["Chase Manhattan", "David Rockefeller", "SOM tower"],
+    history: [
+      `28 Liberty Street, originally One Chase Manhattan Plaza, is the great modern-bank counterpoint to the older stone buildings. David Rockefeller pushed the project after Chase National Bank and the Manhattan Company merged in the 1950s. The goal was to keep a major bank committed to Lower Manhattan and consolidate thousands of employees in a modern headquarters.`,
+      `Designed by Gordon Bunshaft's team at Skidmore, Owings & Merrill, the tower used an open plaza, stainless-steel facade, and International Style discipline instead of masonry symbolism. It announced that postwar banking was corporate, managerial, global, and modern.`,
+      `The building's huge employee capacity matters. Wall Street finance is not only executives in paneled rooms. It is thousands of workers moving through elevators, cafeterias, operations floors, lending departments, legal teams, and technology systems. One Chase Manhattan Plaza made that scale visible.`
+    ],
+    today: [
+      `JPMorgan Chase sold the building to Fosun in 2013, and it was renamed 28 Liberty Street. The former single-bank headquarters is now a mixed office and retail property with restaurants and public-facing uses, but the plaza still carries the memory of Chase's mid-century downtown power.`,
+      `For someone thinking about a finance career, this is a crucial stop because it explains the corporate headquarters model: not the exchange, not a boutique bank, but a full organizational machine.`
+    ],
+    current: [
+      `Optional blue marker almost beside the New York Fed. Walk the plaza edge and compare it with the narrow older streets around Wall and Broad. The space feels like a bank trying to create its own campus inside the old district.`
+    ],
+    facts: [
+      `Chase built it to consolidate thousands of employees downtown.`,
+      `The tower occupies only part of its site, using the plaza as corporate urbanism.`,
+      `Its sale and renaming show how bank headquarters can become global investment real estate.`
+    ]
+  },
+  {
+    id: 23,
+    name: "60 Wall Street — J.P. Morgan / Deutsche Bank",
+    type: "Finance Deep Dive / Global Bank Offices",
+    lat: 40.7060, lng: -74.0087,
+    era: "1989",
+    route: false,
+    finance: true,
+    tags: ["J.P. Morgan tower", "Deutsche Bank U.S. HQ", "Atrium renovation"],
+    history: [
+      `60 Wall Street was completed in 1989 for J.P. Morgan, giving the firm a modern tower not far from its old symbolic home at 23 Wall. That move captures a century of change: from a compact private-bank headquarters to a large corporate office tower with modern floor plates and infrastructure.`,
+      `After 9/11, Deutsche Bank made 60 Wall Street its American headquarters after its buildings near the World Trade Center were damaged or destroyed. For two decades, the tower became a major address for a global European bank operating in New York's capital markets ecosystem.`,
+      `The building's public atrium became part of downtown office culture: a semi-public interior where workers, visitors, and lunch traffic moved through a private tower. Later renovation plans and preservation debates around the lobby show how even late-20th-century finance interiors can become culturally contested.`
+    ],
+    today: [
+      `Deutsche Bank has moved out, and the building has been undergoing repositioning for new tenants. That vacancy and renovation story is very current Wall Street: older office towers must compete for tenants in a market changed by remote work, new amenities, and firms moving to newer campuses.`,
+      `Career-wise, this stop is about global banking presence. Wall Street is not just American firms; it is also the New York outpost for foreign banks, sovereign clients, global markets desks, and cross-border finance.`
+    ],
+    current: [
+      `Optional blue marker near 40 Wall, 28 Liberty, and the Fed. Treat it as a modern office-market stop: who used to work here, who moved out, and what kind of space finance firms want now.`
+    ],
+    facts: [
+      `The tower connected J.P. Morgan's old Wall Street identity to modern office needs.`,
+      `It later served as Deutsche Bank's U.S. headquarters after 9/11 disruptions.`,
+      `Its renovation debate shows that finance architecture from the 1980s is now old enough to have preservation politics.`
+    ]
+  },
+  {
+    id: 24,
+    name: "20 Exchange Place — City Bank-Farmers Trust",
+    type: "Finance Deep Dive / Citigroup Lineage",
+    lat: 40.7056, lng: -74.0099,
+    era: "1931",
+    route: false,
+    finance: true,
+    tags: ["Citibank predecessor", "Giants of finance", "Office-to-residential"],
+    history: [
+      `20 Exchange Place was built for City Bank-Farmers Trust, a predecessor in the Citigroup family tree. It opened in 1931 after plans for an even taller tower were cut back during the early Depression. That scaling-back is part of the story: finance ambition was still enormous, but the economic ground had shifted.`,
+      `The facade includes sculptural figures often described as giants of finance, along with medallions representing countries where the bank operated. The building was advertising international reach before today's global-bank branding language existed.`,
+      `Like One Wall Street and 70 Pine, 20 Exchange Place later shifted from office use toward residential conversion. That is one of the big patterns in Lower Manhattan: old financial headquarters become apartments once their floor plates, infrastructure, or corporate identity no longer fit modern office demand.`
+    ],
+    today: [
+      `The building is now largely residential, but its exterior still reads as banking architecture. For finance literacy, it is valuable because it ties modern Citigroup back to older National City Bank and trust-company history.`,
+      `This stop also makes the district feel denser: within a few blocks, you can see lineages of Morgan, Chase, Citi, Bankers Trust, the Fed, and the NYSE layered over each other.`
+    ],
+    current: [
+      `Optional blue marker near Fraunces Tavern and 60 Wall. Look at the lower facade details rather than only the tower. The sculptural program is the finance lesson.`
+    ],
+    facts: [
+      `The original plan was reduced after the 1929 crash changed market conditions.`,
+      `Its ornament advertised global banking reach.`,
+      `It connects the tour to Citigroup's institutional ancestry.`
+    ]
+  },
+  {
+    id: 25,
+    name: "70 Pine Street — Cities Service / AIG",
+    type: "Finance Deep Dive / Energy, Insurance & Risk",
+    lat: 40.7064, lng: -74.0077,
+    era: "1932",
+    route: false,
+    finance: true,
+    tags: ["Cities Service", "AIG history", "Risk capital"],
+    history: [
+      `70 Pine Street was built for Cities Service, an energy and utilities holding company, and later became strongly associated with AIG. That makes it a useful stop because Wall Street finance is not only banks. It is also insurance, energy finance, holding companies, risk transfer, and corporate capital markets.`,
+      `The tower opened during the Depression yet became a profitable and well-occupied building within a few years. Its slender Art Deco form, elaborate lobby, and executive spaces near the top expressed a different kind of corporate glamour from the older bank temples.`,
+      `AIG's later connection gives the building a modern financial-crisis echo. Insurance can sound conservative, but firms like AIG sat at the center of global risk markets. The 2008 crisis made that painfully clear, even though the crisis story itself goes far beyond this building.`
+    ],
+    today: [
+      `70 Pine has been converted to residential and hospitality uses, which again shows the district's transformation from specialized corporate headquarters to mixed-use neighborhood. But its finance value remains: it broadens the tour from banking into insurance and risk.`,
+      `For career context, this is a stop about the less obvious finance jobs: risk modeling, insurance products, structured finance, corporate treasury, energy markets, and the people who price uncertainty rather than trade stocks.`
+    ],
+    current: [
+      `Optional blue marker near 60 Wall and the Fed. Look for Art Deco verticality and compare it to One Wall Street. Both are 1930s corporate-finance towers, but they project different personalities.`
+    ],
+    facts: [
+      `Cities Service was tied to energy and utilities finance, not ordinary retail banking.`,
+      `AIG's association connects the site to insurance and systemic risk.`,
+      `The building is another major example of Financial District office-to-residential conversion.`
+    ]
+  },
+  {
+    id: 26,
+    name: "200 Vesey Street — American Express",
+    type: "Finance Deep Dive / Payments & Corporate HQ",
+    lat: 40.7130, lng: -74.0157,
+    era: "1986",
+    route: false,
+    finance: true,
+    tags: ["American Express HQ", "Brookfield Place", "Future 2 WTC move"],
+    history: [
+      `200 Vesey Street, formerly Three World Financial Center, is the longtime global headquarters of American Express. American Express is not a bank in the old Wall Street sense; it is a payments, card, travel, credit, and customer-network company. That makes it one of the best stops for understanding modern finance as consumer data, brand trust, merchant relationships, and payment rails.`,
+      `The building is part of Brookfield Place, originally the World Financial Center, which shifted major office gravity west toward Battery Park City in the 1980s. It showed that elite financial firms did not have to sit directly on Wall Street to be part of the district's work life.`,
+      `As of 2026, American Express has announced plans for a new global headquarters at 2 World Trade Center, expected later in the next decade. That is a live example of corporate location strategy: a firm can remain committed to Lower Manhattan while upgrading into a purpose-built future tower.`
+    ],
+    today: [
+      `For career orientation, this is one of the most practical stops. It shows where a major financial-services company actually has employees going to work today, and it expands the mental map beyond investment banks and exchanges.`,
+      `Brookfield Place also shows the lifestyle side of modern finance offices: food halls, waterfront access, polished lobbies, retail, security, and climate-controlled connections. The workplace is not only a desk; it is an environment designed to recruit and retain talent.`
+    ],
+    current: [
+      `Optional blue marker near Goldman Sachs and the World Trade Center stops. If you are tired, this pairs naturally with Goldman and the Oculus rather than with the older Wall Street core.`
+    ],
+    facts: [
+      `American Express has been based at 200 Vesey Street since the World Financial Center era.`,
+      `Its planned 2 WTC headquarters shows Lower Manhattan is still competing for major finance employers.`,
+      `Payments companies are finance infrastructure, even when they do not look like old banks.`
+    ]
+  }
+];
+
+STOPS.push(...FOOD_STOPS, ...FINANCE_STOPS);
+
+const EXPANDED_STOP_INFO = {
+  1: {
+    history: [
+      `Fulton Center is a very new building sitting on top of a very old transit problem. Lower Manhattan's subway lines were built by competing private companies, which left the Fulton Street area with a tangle of platforms, passageways, stairs, and transfers that worked, but rarely felt graceful. After the September 11 attacks damaged Lower Manhattan's transit network, federal rebuilding money helped fund a cleaner, brighter interchange for the neighborhood.`,
+      `The 2014 project did more than put a glass dome over the station. It reorganized access to the A, C, J, Z, 2, 3, 4, 5, R, and W lines, created easier underground connections, and folded the 1889 Corbin Building into a modern transit complex. That Corbin facade on John Street is worth a slow look: it is a survivor from the pre-steel-skyscraper moment, with brick, brownstone, terra cotta, and Guastavino tile vaulting.`,
+      `The famous Sky Reflector Net is both artwork and infrastructure. Hundreds of reflective panels catch sunlight from the oculus and push it down into levels that would otherwise feel completely subterranean. It is a very Financial District kind of achievement: a daily commute dressed up as civic repair.`
+    ],
+    today: [
+      `Today Fulton Center is one of the neighborhood's best orientation points. From here you can move east toward the Seaport, south toward Wall Street, west through the Dey Street passage toward the World Trade Center, or north toward City Hall. For a walking tour, it is a useful starting point because it lets people arrive from many subway lines without needing a separate meetup at street level.`,
+      `The building also shows how Lower Manhattan has changed since the early 2000s. What was once treated as a workday-only business district now has a denser mix of residents, shopping, commuters, tourists, and office workers. The retail concourse and the restoration of the Corbin Building make the station feel less like a utility box and more like a small public interior.`
+    ],
+    current: [
+      `Open 24/7 as a transit hub. The best viewing move is simple: stand on the main concourse, look up into the oculus, then compare the new dome with the older Corbin Building entrance on John Street. If the weather is harsh, this is also a good indoor reset point before the Wall Street stops.`
+    ],
+    facts: [
+      `The Corbin Building was once considered at risk during transit planning, then became one of the project's preservation wins.`,
+      `The light installation is designed to pull daylight as much as several levels below the street.`,
+      `This is the practical gateway between the Financial District tour and the World Trade Center portion of the route.`
+    ]
+  },
+  2: {
+    history: [
+      `Trinity Church is one of the best places to feel the age of Wall Street. The parish received its charter in the 1690s, when New York was still a small port city growing out of Dutch New Amsterdam. The first church burned in the Great Fire of 1776 during the Revolutionary War. A second church opened in 1790, but structural problems eventually forced its replacement.`,
+      `The current Gothic Revival church opened in 1846. At the time, its spire made it one of the most commanding vertical markers in Manhattan. That is hard to imagine now, because the church is surrounded by towers, but the contrast is the point: for much of the 19th century, Trinity was the visual anchor at the head of Wall Street, joining religion, land ownership, burial, and finance in one image.`,
+      `The churchyard is a compact history lesson. Alexander Hamilton and Elizabeth Schuyler Hamilton are buried here, as are figures tied to engineering, banking, politics, and early New York society. The stones also remind you that Wall Street was never only about markets. It was a civic and religious neighborhood before it became shorthand for global finance.`
+    ],
+    today: [
+      `Trinity is still an active Episcopal parish, not just a monument. It hosts services, music, community programs, and a steady flow of visitors. The Hamilton grave became much more famous after the musical, but the cemetery rewards a slower pace: old inscriptions, uneven stones, and the strange calm of a graveyard surrounded by traffic and glass towers.`,
+      `Architecturally, the church is also a useful contrast stop. Wall Street's banks often use classical columns to suggest stability and law. Trinity uses Gothic verticality, pointed arches, and churchyard memory. Standing at Broadway and Wall Street, you can see two versions of authority facing each other.`
+    ],
+    current: [
+      `Free to visit when open. If you are short on time, do the churchyard rather than trying to read every interior label. Hamilton's grave is the famous stop, but step back toward Broadway for the best view of the spire framed by the street canyon.`
+    ],
+    facts: [
+      `The current building is the third Trinity Church on this site.`,
+      `Hamilton, Eliza Hamilton, Robert Fulton, and Albert Gallatin are among the notable burials.`,
+      `Its spire once dominated a skyline that had not yet been overtaken by office towers.`
+    ]
+  },
+  3: {
+    history: [
+      `One Wall Street began as the headquarters of Irving Trust, a commercial bank that wanted architecture to do what advertising could not: make depositors feel that their money was inside something permanent. Completed in 1931 and designed by Ralph Walker, the tower arrived in the shadow of the 1929 crash, which makes its confidence feel almost defiant.`,
+      `The building is Art Deco, but not in the same theatrical way as the Chrysler Building. Its power comes from vertical limestone folds, setbacks, and a muscular massing that turns a tight Wall Street site into a rising form. The interior showpiece was the Red Room, a banking hall covered in red, orange, and gold mosaic work associated with artist Hildreth Meiere. It was meant to impress important clients without using the old classical language of columns and pediments.`,
+      `After Irving Trust was acquired by Bank of New York, and later after BNY Mellon left, the building became part of a major downtown experiment: converting obsolete office space into luxury housing. That conversion tells a large New York story. The Financial District used to empty after business hours. Now former bank towers can become apartments with grocery stores, gyms, and residential lobbies.`
+    ],
+    today: [
+      `The building's conversion into hundreds of condominiums, with major retail at the base, is one of the clearest signs of Lower Manhattan's residential turn. Whole Foods and other ground-floor uses are not incidental; they are evidence that the neighborhood is no longer only a place people commute into.`,
+      `The Red Room has become a preservation touchstone because it survived even when so much banking infrastructure changed around it. For a tour, One Wall Street works as a bridge between two eras: the 1930s world of institutional banking and the 21st-century world of branded luxury living.`
+    ],
+    current: [
+      `The residential areas are private, but the exterior can be read from Wall Street and Broadway. Look for the limestone folds and the way the tower steps upward. If the retail spaces are open, they may provide glimpses of restored interior drama, but treat the building mainly as an exterior architecture stop.`
+    ],
+    facts: [
+      `The Red Room's mosaics made the bank lobby one of New York's great Art Deco interiors.`,
+      `The building replaced earlier structures on one of the most valuable corners in the city.`,
+      `Its conversion is often cited as one of New York's largest office-to-residential transformations.`
+    ]
+  },
+  4: {
+    history: [
+      `Federal Hall marks one of the densest political sites in the United States. The original building on this spot served as New York's City Hall, then as the first Capitol of the United States under the Constitution. On April 30, 1789, George Washington took the presidential oath here, with the new federal government still experimental and fragile.`,
+      `The original structure is gone. The current Greek Revival building opened in 1842 and served first as a U.S. Custom House, then as a Sub-Treasury. That history matters because customs revenue was once one of the federal government's major income streams. So even after Congress moved away, this corner remained tied to the money machinery of the young republic.`,
+      `The bronze Washington statue outside, installed in 1883, turns the steps into a civic stage. Visitors often photograph the statue without realizing that Federal Hall is also a story about replacement and memory: the first Capitol vanished, but the site kept being reused to say, "national government began here."`
+    ],
+    today: [
+      `Federal Hall is managed by the National Park Service as a national memorial. Inside, exhibits usually focus on Washington's inauguration, the Constitution, early American government, and the building's later financial functions. It is one of the rare Wall Street stops where you can step indoors for free and get a quieter historical frame around the district.`,
+      `The building also creates one of the best visual juxtapositions in the neighborhood. From its steps, the New York Stock Exchange and the House of Morgan are close by. In a few yards you can move from founding-government symbolism to private finance and public markets.`
+    ],
+    current: [
+      `Free admission when open, generally weekday hours. If it is closed, the steps and Washington statue still make the stop worthwhile. Use this as the place to explain why Wall Street is not only financial history; it is also constitutional history.`
+    ],
+    facts: [
+      `Washington's first inauguration took place at the earlier Federal Hall on this site.`,
+      `The present building later stored federal funds as a Sub-Treasury.`,
+      `The statue faces Wall Street like a reminder that political legitimacy and financial power grew up together here.`
+    ]
+  },
+  5: {
+    history: [
+      `The New York Stock Exchange traces its founding story to the Buttonwood Agreement of May 17, 1792, when brokers agreed to trade with one another under fixed rules. The famous buttonwood tree story is partly legend and partly memory, but the larger point is solid: New York securities trading became organized through private rules before it became the vast regulated market people know today.`,
+      `The current Broad Street facade opened in 1903, designed to project order, scale, and trust. The huge columns and pediment are not subtle. They turn a marketplace into something that looks almost governmental, which is useful for understanding the exchange's role. The NYSE is a private institution, but its public meaning is enormous because its listed companies and market signals affect the global economy.`,
+      `For much of the 20th century, the trading floor was a theater of human noise: specialists, runners, paper slips, shouted orders, and hand signals. Electronic trading changed that dramatically, but the floor still matters for openings, closings, IPO ceremonies, television images, and the symbolic life of American capitalism.`
+    ],
+    today: [
+      `The NYSE remains one of the world's most important exchanges by market value of listed companies. It is now owned by Intercontinental Exchange, and much of the trading flow is electronic. That makes the building almost paradoxical: the visible monument is stone and columns, while the real market is largely networks, data centers, algorithms, and regulation.`,
+      `The security barriers around the building are also part of the modern story. Wall Street is open to pedestrians, but not in the loose way it once was. Since 9/11 and other security concerns, the area around Broad and Wall Streets has become a managed civic-financial zone.`
+    ],
+    current: [
+      `Not open to public tours. The best view is from Broad Street, where you can see the facade, flags, security perimeter, and Fearless Girl in relation to the exchange. If you are there near the opening or closing bell, the building may feel more ceremonial even from outside.`
+    ],
+    facts: [
+      `The Buttonwood Agreement set preference rules among brokers and a commission structure.`,
+      `The 1903 building dedication marked the exchange's arrival as an architectural institution, not just a trading club.`,
+      `The most visible stock exchange in America is now also a symbol for systems most visitors never physically see.`
+    ]
+  },
+  6: {
+    history: [
+      `Fearless Girl was installed in March 2017, just before International Women's Day, by State Street Global Advisors as part of a campaign about gender diversity in corporate leadership. The sculpture, by Kristen Visbal, first faced Charging Bull at Bowling Green, which turned a small bronze figure into a global image almost overnight.`,
+      `The original placement mattered. Charging Bull had long symbolized market optimism and financial aggression. Putting a girl in a confident stance directly in front of it reframed the bull without changing the bull itself. That is why the installation became both beloved and controversial. Arturo Di Modica, the bull's sculptor, objected that the new work changed the meaning of his sculpture.`,
+      `The statue was later moved to Broad Street in front of the New York Stock Exchange. That relocation made the message less about confronting a bull and more about confronting the institutions of finance directly.`
+    ],
+    today: [
+      `Fearless Girl remains a complicated public artwork because it is both sculpture and corporate campaign. It inspired real conversations about board representation and women in leadership, but it also drew criticism as brand activism. That tension is useful on the tour: Wall Street does not only produce financial instruments; it also produces symbols, reputations, and public relations battles.`,
+      `The statue's scale is part of its force. She is small, calm, and human-sized in front of massive architecture and security fencing. Visitors often pose beside her, but the better reading is from a few steps back, where her stance lines up against the NYSE facade.`
+    ],
+    current: [
+      `Open 24/7 on Broad Street. Expect photo lines during busy hours. Try viewing it from both sides: close enough to see the expression, then farther back to see how the statue uses the stock exchange as its backdrop.`
+    ],
+    facts: [
+      `The sculpture was originally temporary but quickly became a permanent-seeming part of Wall Street's public image.`,
+      `Its move from Bowling Green to Broad Street changed its symbolic target.`,
+      `The work is a good example of how public art, advertising, and politics can overlap.`
+    ]
+  },
+  7: {
+    history: [
+      `23 Wall Street, the House of Morgan, is one of the most severe power buildings in New York. Completed in 1914 for J.P. Morgan & Co., it deliberately avoided a giant sign. The message was that everyone who mattered already knew what it was. Its low, fortress-like form also contrasts with the skyscraper race happening around it.`,
+      `On September 16, 1920, a horse-drawn wagon filled with explosives detonated outside the building around noon. The Wall Street bombing killed 38 people and injured many more. It was one of the deadliest acts of political violence in New York history, and the case was never conclusively solved. The scars in the stone are still visible, especially if you look carefully at the Wall Street and Broad Street sides.`,
+      `Morgan's firm chose not to repair all the exterior damage. Whether read as defiance, memorial, or branding, that choice turned the facade into evidence. It is one of the rare places in the district where violence remains physically legible on the building itself.`
+    ],
+    today: [
+      `The building no longer functions as Morgan's command center, and it has spent long stretches underused or vacant. That vacancy is striking because the site is so historically loaded. Wall Street's center of gravity moved into larger towers, merged institutions, and global networks, while the old House of Morgan became a shell of former private-banking power.`,
+      `For the tour, this is the best stop for talking about the difference between visible and invisible power. The building is short, quiet, and almost blank. Yet in the early 20th century, the Morgan name carried enormous influence over railroads, industry, government finance, and crisis response.`
+    ],
+    current: [
+      `Interior access is generally not available. Look closely at the exterior stone for pockmarks from the 1920 bombing. Because the building is easy to pass too quickly, give this stop a full minute of stillness before moving on.`
+    ],
+    facts: [
+      `The building had no large exterior name sign because the Morgan brand did not need one.`,
+      `The 1920 bombing took place in the heart of the lunch-hour financial district.`,
+      `The unrepaired facade makes the site feel less polished than many nearby landmarks.`
+    ]
+  },
+  8: {
+    history: [
+      `The Federal Reserve Bank of New York building opened in 1924, with architecture by York and Sawyer. Its rusticated stone exterior borrows from Italian Renaissance palaces, which is not accidental. The building needed to communicate custody, seriousness, and institutional durability.`,
+      `Its gold vault is the famous feature. The vault sits deep below street level, anchored in Manhattan bedrock, and has long been described as the largest known monetary gold depository in the world. Much of the gold is held for foreign central banks and international institutions rather than owned by the New York Fed itself. That makes the building less like a treasure chest and more like a trusted storage node in the global financial system.`,
+      `The New York Fed also has an unusually important role within the Federal Reserve system. It conducts open market operations, interacts with major financial institutions, helps implement monetary policy, and serves important Treasury functions. In plain English: when people talk about the machinery behind interest rates, liquidity, and crisis response, this building is one of the places where that machinery becomes operational.`
+    ],
+    today: [
+      `The building remains a working central bank branch and a symbol of financial plumbing most people never see. Its public museum and tour program, when available, are designed to make monetary policy and currency systems less abstract. The gold vault is the headline, but the more interesting idea is trust: countries store gold here because custody, security, and neutrality matter.`,
+      `The architecture rewards comparison with nearby private banks. Morgan's building is spare and club-like; the Fed is governmental, fortified, and educational. Together they show different faces of financial authority.`
+    ],
+    current: [
+      `Public tours have historically required advance reservation and security screening. Do not count on same-day access. From outside, view the stonework and the heavy lower stories, then use the stop to explain the hidden infrastructure beneath the street.`
+    ],
+    facts: [
+      `The vault is deep enough to rest in Manhattan bedrock.`,
+      `Most gold held there belongs to foreign governments, central banks, or international institutions.`,
+      `The New York Fed is especially important because of its role in market operations.`
+    ]
+  },
+  9: {
+    history: [
+      `Fraunces Tavern began as an 18th-century residence before Samuel Fraunces turned it into a tavern in the 1760s. Taverns were not just places to drink. In colonial New York they were meeting rooms, news exchanges, political spaces, and commercial hubs. This one became deeply associated with the American Revolution.`,
+      `Its most famous moment came on December 4, 1783, when George Washington said farewell to officers of the Continental Army in the Long Room after the British evacuation of New York. The emotional power of that scene comes from timing: the war had been won, but the new country was not yet stable, and Washington was stepping away from military command rather than turning victory into dictatorship.`,
+      `The building's later history is messy, which makes it more interesting. It changed uses, suffered fires, was restored, and became a museum. In 1975, a bomb connected to the FALN exploded at the complex, killing four people and injuring more than 50. So the site carries both Revolutionary memory and modern political violence.`
+    ],
+    today: [
+      `Fraunces Tavern is both a restaurant and a museum. That dual identity suits the building. You can treat it as a historic stop, but it also still works as a social interior in the old tavern tradition. The museum rooms upstairs interpret Washington, the Revolution, and early New York, while the restaurant keeps the place from feeling frozen.`,
+      `The stop is also useful because Pearl Street and the surrounding blocks reveal an older street pattern than the strict grid uptown. You are walking through the port city, not the later Commissioners' Plan Manhattan.`
+    ],
+    current: [
+      `Good lunch, drink, or museum break if time allows. If you only have a few minutes, stand at Pearl and Broad and imagine the shoreline much closer than it is today. Much of Lower Manhattan's edge has been remade by landfill.`
+    ],
+    facts: [
+      `Washington's farewell to his officers happened here after the British left New York.`,
+      `The Long Room is the museum's emotional centerpiece.`,
+      `The building connects colonial tavern culture, Revolutionary memory, and 20th-century political violence.`
+    ]
+  },
+  10: {
+    history: [
+      `55 Water Street is not old by Financial District standards, but it is a major statement about corporate scale in the 1970s. Completed in 1972, it was briefly described as one of the largest office buildings in the world by floor area. Its huge floor plates were made possible by unusual site planning and air-rights arrangements near the East River and FDR Drive.`,
+      `The building belongs to the International Style office world: glass, grid, efficiency, and corporate mass rather than ornament. It represents a period when Lower Manhattan tried to compete for modern office tenants by building very large, rationalized spaces. This is a different kind of finance architecture from the classical NYSE or the Art Deco towers.`,
+      `The public spaces around it matter. Vietnam Veterans Plaza grew from Jeannette Park and was rededicated in the 1980s. The memorial uses text from letters, news dispatches, and personal writings, which makes it unusually voice-driven. Nearby, the Elevated Acre gives an unexpected raised lawn and harbor-facing pause above the street.`
+    ],
+    today: [
+      `55 Water Street still functions as a large office complex, but the tour value is in the urban spaces around it. It shows how private office developments in New York often create privately owned public spaces, some successful and some awkward. The Elevated Acre is one of the better surprises in Lower Manhattan if it is open.`,
+      `This stop also helps connect Wall Street to the waterfront. Finance did not grow in isolation from shipping, trade, insurance, and port infrastructure. Even a 1970s office slab near the East River is part of that longer commercial geography.`
+    ],
+    current: [
+      `Visit Vietnam Veterans Plaza at street level and, if accessible, go up to the Elevated Acre for a change in perspective. This is a good rest stop because it offers more space than the narrow Wall Street canyon.`
+    ],
+    facts: [
+      `The building's scale depends on unusually large lower-floor plates.`,
+      `Vietnam Veterans Plaza uses written testimony as part of the memorial experience.`,
+      `The Elevated Acre is easy to miss from the sidewalk but worth the detour.`
+    ]
+  },
+  11: {
+    history: [
+      `South Street Seaport is where the financial district remembers that it began as a port. In the Dutch and British colonial periods, the East River waterfront was a working edge of slips, countinghouses, warehouses, markets, sailors, merchants, and ship traffic. Before Wall Street became a metaphor for finance, New York's wealth depended heavily on maritime trade.`,
+      `Schermerhorn Row, built in the early 1800s, is one of the key surviving pieces of that commercial world. Its brick countinghouse architecture is smaller and more human-scaled than the towers around Wall Street, but it once represented serious merchant capital. The Fulton Fish Market later made the district famous for early-morning food trade until the market moved to the Bronx in 2005.`,
+      `The preservation story is also important. In the 1960s, when many old waterfront buildings were threatened, preservationists pushed to create the South Street Seaport Museum and save the historic district. That effort helped protect a piece of maritime New York at a time when the city often favored demolition and redevelopment.`
+    ],
+    today: [
+      `Pier 17 and the surrounding Seaport now mix heritage, dining, retail, concerts, and waterfront views. The result can feel more polished than gritty, but the bones of the old port are still present if you look for cobblestones, warehouse fronts, ship masts, and the scale of the streets.`,
+      `The Seaport Museum's historic vessels, including ships associated with 19th-century trade, make this stop especially useful for people who want something tactile after a series of banks. It also gives one of the best skyline views back toward the Financial District, letting you see the towers as a cluster rather than as isolated stops.`
+    ],
+    current: [
+      `Allow extra time if you want waterfront photos or museum exhibits. Pier 17 is good for views, while the older streets near Fulton and Front are better for history. This is a natural snack or restroom break on a long afternoon route.`
+    ],
+    facts: [
+      `The district preserves the memory of New York's original working waterfront.`,
+      `Schermerhorn Row is a rare surviving row of Federal-period commercial buildings.`,
+      `The Seaport's modern entertainment layer sits on top of a much older trade landscape.`
+    ]
+  },
+  12: {
+    history: [
+      `Bowling Green is often called New York City's oldest public park. In 1733, the colonial government leased the space for the symbolic rent of one peppercorn a year, and it became a small formal green near the old Dutch fort site. Its size is modest, but its political symbolism is huge.`,
+      `Before the Revolution, an equestrian statue of King George III stood here. After the Declaration of Independence was read in New York on July 9, 1776, patriots and soldiers pulled the statue down. Its lead was reportedly melted into bullets, turning royal symbolism into revolutionary material. The fence around the park still carries evidence of that moment: the royal crown finials were sawed off.`,
+      `The park sits beside the Alexander Hamilton U.S. Custom House, a Beaux-Arts building that now houses the National Museum of the American Indian. That pairing is useful: a small colonial green, a memory of revolution, and a federal customs building all occupying the old southern approach to Broadway.`
+    ],
+    today: [
+      `Bowling Green is now a pocket of greenery surrounded by traffic, tourists, museums, and office towers. It is also the setting for Charging Bull just to the north, which has shifted many visitors' attention from colonial history to financial symbolism. The two stories fit together better than they first seem: this is a place where public symbols get contested.`,
+      `The park gives the tour a chance to talk about material traces. Unlike many historic claims that require imagination, the fence is still physically there. The missing crown finials make the Revolution visible as an act of alteration, not just a date in a textbook.`
+    ],
+    current: [
+      `Walk the fence slowly and look at the tops of the posts. If the park is crowded around Charging Bull, Bowling Green itself can still be a calmer place to pause before heading to Battery Park.`
+    ],
+    facts: [
+      `The park's fence is one of the oldest surviving pieces of street furniture in New York.`,
+      `The King George III statue became a Revolutionary target in 1776.`,
+      `Bowling Green sits near the site of New Amsterdam's old fort.`
+    ]
+  },
+  13: {
+    history: [
+      `Charging Bull was not commissioned by the city or the stock exchange. Arturo Di Modica created it after the 1987 market crash and installed it without permission near the New York Stock Exchange in December 1989. Police removed it, but public affection helped bring it back nearby at Bowling Green.`,
+      `That origin story is why the bull works so well as Wall Street mythology. It is officially unauthorized yet culturally unavoidable. Di Modica described it as a gift of strength and optimism after a frightening financial collapse. The sculpture's physical language is direct: lowered head, coiled body, forward motion, and polished bronze from millions of hands.`,
+      `Over time, the bull became one of the most photographed symbols of American markets. Its meaning has also been argued over. Some see resilience and prosperity; others see aggression, speculation, or financial excess. The arrival of Fearless Girl in 2017 made those debates even more visible by placing another symbol into conversation with it.`
+    ],
+    today: [
+      `The bull is now a tourism machine. Lines form for photos from the front and back, and the ritual can be more interesting than the sculpture itself. People touch it for luck, prosperity, or just because everyone else is doing it. Public art becomes public habit.`,
+      `For the tour, the best way to handle the crowds is to step aside and watch. The bull shows how quickly an object can become a civic mascot when it gives people a simple story and a simple pose. It is Wall Street reduced to an animal body.`
+    ],
+    current: [
+      `Open 24/7, usually crowded. For a cleaner photo, come early or late. If you are short on time, do not wait in the long line; view it from the side and keep moving toward Battery Park.`
+    ],
+    facts: [
+      `The sculpture weighs several tons and was installed as guerrilla public art.`,
+      `Its first location was by the NYSE, but its long-term home became Bowling Green.`,
+      `The polished spots reveal the exact places visitors touch most often.`
+    ]
+  },
+  14: {
+    history: [
+      `Battery Park occupies Manhattan's southern tip, a landscape repeatedly extended and reshaped by landfill. The name comes from the artillery batteries that defended the harbor. Castle Clinton, the circular sandstone fort inside the park, was built in the early 1800s as part of New York's harbor defense system, though it never fired on an enemy in war.`,
+      `The fort then lived several lives. It became Castle Garden, an entertainment venue where audiences heard concerts and performances. In 1855 it became America's first official immigrant processing station, decades before Ellis Island. Millions of people entered the United States through Castle Garden, making it one of the most important immigration sites in the country.`,
+      `Later the structure housed the New York Aquarium before preservation battles saved it from demolition during mid-20th-century infrastructure planning. Its survival is a reminder that historic sites often persist because people fight for them after their original use has disappeared.`
+    ],
+    today: [
+      `Battery Park is now a green waterfront threshold to New York Harbor. From here you can see the Statue of Liberty, Ellis Island, Governors Island, and the ferry traffic that still makes the harbor feel active. Castle Clinton serves as a National Park Service site and ticketing area for Statue of Liberty and Ellis Island ferries.`,
+      `This stop changes the emotional register of the tour. After banks, exchanges, and memorials, the harbor opens up the geography. New York's financial power was built on its port, and the Battery makes that fact visible.`
+    ],
+    current: [
+      `Free to enter the park and Castle Clinton when open. This is now the tour start because it is next to South Ferry on the 1 train, with Bowling Green 4/5 nearby. It gives you a clean subway arrival before walking north through the finance district.`
+    ],
+    facts: [
+      `Castle Clinton processed millions of immigrants before Ellis Island opened.`,
+      `The fort became an entertainment venue, immigrant depot, aquarium, and national monument.`,
+      `The Staten Island Ferry nearby offers a free harbor ride if you want views without museum tickets.`
+    ]
+  },
+  15: {
+    history: [
+      `Goldman Sachs began in 1869 as Marcus Goldman's commercial paper business, helping companies finance short-term needs. Over time it became one of the most influential investment banks in the world, associated with advisory work, securities underwriting, trading, asset management, and a famously intense internal culture.`,
+      `The headquarters at 200 West Street opened around 2010 after years of planning and post-9/11 downtown redevelopment politics. Designed by Pei Cobb Freed & Partners, the tower is large but comparatively restrained. Its Battery Park City location also says something important: the center of finance in Lower Manhattan is not only the old Wall Street corridor anymore.`,
+      `The building arrived after a period when some financial firms considered moving major operations across the Hudson or elsewhere. Keeping Goldman downtown was treated as economically and symbolically important for Lower Manhattan's recovery and future.`
+    ],
+    today: [
+      `Goldman remains a major global investment bank, though its business mix and public image have shifted over time. The firm has moved through trading booms, crisis scrutiny, consumer-banking experiments, and renewed focus on core institutional finance. For a walking tour, the building represents modern finance as corporate campus rather than old stone monument.`,
+      `Unlike the NYSE, this stop has little public ceremony. The tower's power is internal: trading floors, meeting rooms, security, employee amenities, and private workspaces. That makes it a good contrast with the older stops, which often perform their importance through public facades.`
+    ],
+    current: [
+      `Not publicly accessible. View from West Street or nearby public spaces. If you are trying to fit the route into one afternoon, this is the stop most likely to feel like a distance commitment unless you also want the World Trade Center stops afterward.`
+    ],
+    facts: [
+      `The tower helped anchor Battery Park City's role in post-9/11 lower Manhattan finance.`,
+      `Its curved western facade responds partly to site and view constraints.`,
+      `The building is a modern headquarters, not a visitor landmark, so treat it as context rather than an interior destination.`
+    ]
+  },
+  16: {
+    history: [
+      `The 9/11 Memorial occupies the footprints of the original Twin Towers, which were destroyed in the terrorist attacks of September 11, 2001. The memorial design, Reflecting Absence, by Michael Arad and Peter Walker, uses two enormous voids with water falling into lower central spaces. It turns absence into the main architectural subject.`,
+      `Nearly 3,000 names are inscribed in bronze around the pools, including victims of the 2001 attacks and the 1993 World Trade Center bombing. The arrangement of names follows meaningful adjacencies requested by families and colleagues rather than a simple alphabetical order. That choice makes the memorial social as well as spatial.`,
+      `The museum opened underground in 2014. It preserves artifacts, testimony, structural remnants, emergency vehicles, photographs, recordings, and personal objects. Much of the experience is below grade, close to bedrock and the surviving traces of the site, which gives the museum a very different feeling from a conventional gallery.`
+    ],
+    today: [
+      `The outdoor memorial is one of New York's most visited places, but it still asks for quiet. The sound of falling water masks some city noise, and the pools create a perimeter where visitors instinctively slow down. The surrounding swamp white oaks soften the plaza while the towers around it show the rebuilt commercial district.`,
+      `The stop is essential if the tour is about Lower Manhattan after 2001. It explains why so many nearby buildings, transit projects, security patterns, and redevelopment decisions look the way they do.`
+    ],
+    current: [
+      `The outdoor memorial is free. The museum requires timed admission and deserves at least 90 minutes on its own, so do not add it casually to a packed walking afternoon. If time is limited, visit the pools respectfully and save the museum for another day.`
+    ],
+    facts: [
+      `The pools sit in the footprints of the original towers.`,
+      `Names are grouped by relationship and requested adjacencies, not simply alphabetized.`,
+      `The museum descends into the archaeological and structural remains of the World Trade Center site.`
+    ]
+  },
+  17: {
+    history: [
+      `The Oculus is the visible headhouse of the World Trade Center Transportation Hub, designed by Santiago Calatrava and opened in 2016. Its white ribs are often described as wings or a bird-like form, linked to ideas of release and peace after the attacks on the site.`,
+      `The project became famous not only for its design but also for its cost, delays, and public debate. It was originally imagined with more movable elements, but budget and engineering realities changed the final building. The result is still theatrical: a transit station that behaves like a cathedral nave, shopping concourse, and civic interior all at once.`,
+      `The hub replaced temporary PATH arrangements and reconnected the World Trade Center site to regional transit, subway passages, retail corridors, and Battery Park City. It is infrastructure with a very strong architectural ego.`
+    ],
+    today: [
+      `The Oculus is used by commuters, shoppers, tourists, and office workers. It connects PATH trains to New Jersey with the subway network and underground passages toward Brookfield Place and Fulton Center. That makes it part of the same rebuilt downtown circulation system as the first stop on the tour.`,
+      `The interior is the main event. The white surfaces, long skylight, and repeating ribs create a space that is almost too clean for daily commuting. Whether you love it or find it excessive, it is one of the clearest examples of post-9/11 rebuilding as spectacle.`
+    ],
+    current: [
+      `Open daily, with transit access much longer than retail hours. Go inside if you can; the exterior is interesting, but the full effect happens from the concourse floor looking along the ribbed spine.`
+    ],
+    facts: [
+      `The annual September 11 light alignment is designed around the time the second tower fell.`,
+      `The building is both transit infrastructure and a shopping mall.`,
+      `Its cost made it one of the most debated public works projects in modern New York.`
+    ]
+  },
+  18: {
+    history: [
+      `One World Trade Center is the main tower of the rebuilt World Trade Center complex. Designed by David Childs of Skidmore, Owings & Merrill, it opened in 2014 and rises to the symbolic height of 1,776 feet. That number links the tower to American independence and gives the skyline a deliberately national message.`,
+      `The tower went through many design revisions after the original master planning debates for the site. Security, symbolism, commercial needs, skyline presence, and memory all had to be negotiated. The final building uses a square base that transitions into faceted glass, narrowing as it rises toward the spire.`,
+      `Its relationship to the original Twin Towers is complex. It is not a replacement in the simple sense, because the memorial preserves the footprints as voids. Instead, One World Trade Center stands nearby as a rebuilt commercial and symbolic anchor, insisting that the district continues while the memorial keeps absence visible.`
+    ],
+    today: [
+      `The tower is the tallest building in the Western Hemisphere and houses offices, broadcast infrastructure, and the One World Observatory. For many visitors, the observatory is the dramatic endpoint: elevators, skyline views, harbor geography, and the chance to see the whole route from above.`,
+      `As a tour stop, the building is also a summary of Lower Manhattan's layers. From here you can connect colonial port, federal government, 19th-century trade, Wall Street finance, 20th-century skyscrapers, 9/11, and 21st-century rebuilding in one skyline view.`
+    ],
+    current: [
+      `The observatory requires tickets and time. This is now the tour endpoint because WTC Cortlandt on the 1 is beside the complex, and the Oculus connects you toward E, PATH, and nearby A/C service. If the observatory is the goal, make it the anchor of the day and reduce the number of earlier stops.`
+    ],
+    facts: [
+      `The height of 1,776 feet is symbolic, not accidental.`,
+      `The tower is near, not directly on, the original tower footprints.`,
+      `The observatory gives the best high-level view of the harbor and Financial District route.`
+    ]
+  }
+};
+
+STOPS.forEach(stop => {
+  Object.assign(stop, EXPANDED_STOP_INFO[stop.id] || {});
+});
+
+const TOUR_ESTIMATE = {
+  fallbackKm: 8.0,
+  fallbackMinutes: 100,
+  withStops: "6.5 to 8.5 hours",
+  note: "Start with matcha by South Ferry on the 1. Lunch lands around the Seaport / Water Street segment. End at One World Trade Center by WTC Cortlandt on the 1, with A/C/E connections nearby."
+};
+
+const ROUTE_STOP_IDS = [
+  27, 14, 13, 12, 9, 10, 11, 28, 1, 19, 2, 3, 5, 6, 4,
+  20, 7, 21, 22, 8, 25, 23, 24, 15, 26, 16, 17, 18
+];
+
+let map, markers = [], routeRenderers = [], infoWindows = [], currentStopIdx = null;
+let visitedStops = new Set();
+let watchId = null, userMarker = null, showRoute = true;
+
+function formatMinutes(minutes) {
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+  const hours = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  return mins ? `${hours} hr ${mins} min` : `${hours} hr`;
+}
+
+function renderParagraphs(value) {
+  return (Array.isArray(value) ? value : [value])
+    .filter(Boolean)
+    .map(text => `<p>${text}</p>`)
+    .join('');
+}
+
+function renderFacts(facts) {
+  if (!facts || !facts.length) return '';
+  return `
+    <h3>Fun facts</h3>
+    <ul>${facts.map(fact => `<li>${fact}</li>`).join('')}</ul>
+  `;
+}
+
+function setRouteSummary(distanceKm = TOUR_ESTIMATE.fallbackKm, walkingMinutes = TOUR_ESTIMATE.fallbackMinutes, isFallback = false) {
+  const distance = `${distanceKm.toFixed(1)} km`;
+  const walking = formatMinutes(walkingMinutes);
+  const prefix = isFallback ? 'Route estimate' : 'Full walking route';
+  document.getElementById('route-total').textContent = `${prefix}: ${distance} · ${walking}`;
+  document.getElementById('tour-summary-copy').textContent =
+    `${prefix}: ${distance}, about ${walking} walking only. ${isFallback ? 'The walking line is hidden until Google Directions is available, so the map will not show misleading diagonal shortcuts. ' : ''}With reading time, photos, and short rests, plan on ${TOUR_ESTIMATE.withStops}. ${TOUR_ESTIMATE.note}`;
+}
+
+function setRouteError(message) {
+  document.getElementById('route-total').textContent = `Route unavailable: ${message}`;
+  document.getElementById('tour-summary-copy').textContent =
+    `Google walking directions could not draw the route: ${message}. The app is showing stop markers only, without diagonal shortcut lines. ${TOUR_ESTIMATE.note}`;
+}
+
+function getRouteStops() {
+  return ROUTE_STOP_IDS
+    .map(id => STOPS.find(stop => stop.id === id))
+    .filter(Boolean);
+}
+
+function getRouteIndices() {
+  return ROUTE_STOP_IDS
+    .map(id => STOPS.findIndex(stop => stop.id === id))
+    .filter(index => index >= 0);
+}
+
+function getRoutePosition(idx) {
+  return getRouteIndices().indexOf(idx);
+}
+
+function fallbackRouteDistanceKm() {
+  const earthKm = 6371;
+  const toRad = degrees => degrees * Math.PI / 180;
+  let total = 0;
+  const routeStops = getRouteStops();
+  for (let i = 1; i < routeStops.length; i++) {
+    const prev = routeStops[i - 1];
+    const next = routeStops[i];
+    const dLat = toRad(next.lat - prev.lat);
+    const dLng = toRad(next.lng - prev.lng);
+    const lat1 = toRad(prev.lat);
+    const lat2 = toRad(next.lat);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    total += 2 * earthKm * Math.asin(Math.sqrt(a));
+  }
+  return total * 1.25;
+}
+
+function chunkRouteStops(routeStops, maxIntermediateWaypoints = 8) {
+  const chunks = [];
+  let start = 0;
+  const maxStopsPerRequest = maxIntermediateWaypoints + 2;
+
+  while (start < routeStops.length - 1) {
+    const end = Math.min(start + maxStopsPerRequest - 1, routeStops.length - 1);
+    chunks.push(routeStops.slice(start, end + 1));
+    start = end;
+  }
+
+  return chunks;
+}
+
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: { lat: 40.7074, lng: -74.0102 },
+    zoom: 16,
+    mapTypeId: 'roadmap',
+    disableDefaultUI: true,
+    zoomControl: false,
+    styles: [
+      { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
+      { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
+      { elementType: 'labels.text.fill', stylers: [{ color: '#8892a0' }] },
+      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1b2a' }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2a2a3e' }] },
+      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1a2e' }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2c3e50' }] },
+      { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#1e2a3a' }] },
+      { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#1e2a3a' }] },
+      { featureType: 'administrative', elementType: 'geometry', stylers: [{ color: '#3a3a5a' }] },
+      { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#1a1f2e' }] },
+    ]
+  });
+
+  drawRoute();
+  placeMarkers();
+  startGPS();
+  renderList();
+  updateCounter();
+  setRouteSummary(TOUR_ESTIMATE.fallbackKm, TOUR_ESTIMATE.fallbackMinutes, true);
+}
+
+function drawRoute() {
+  const routeStops = getRouteStops();
+  const directionsService = new google.maps.DirectionsService();
+  const chunks = chunkRouteStops(routeStops);
+  let totalMeters = 0;
+  let totalSeconds = 0;
+  let completed = 0;
+  let failed = false;
+
+  routeRenderers.forEach(renderer => renderer.setMap(null));
+  routeRenderers = [];
+
+  chunks.forEach(chunk => {
+    const renderer = new google.maps.DirectionsRenderer({
+      map,
+      suppressMarkers: true,
+      preserveViewport: true,
+      polylineOptions: { strokeColor: '#FFD700', strokeOpacity: 0.7, strokeWeight: 4 }
+    });
+    routeRenderers.push(renderer);
+
+    const waypoints = chunk.slice(1, -1).map(s => ({
+      location: new google.maps.LatLng(s.lat, s.lng),
+      stopover: true
+    }));
+
+    directionsService.route({
+      origin: new google.maps.LatLng(chunk[0].lat, chunk[0].lng),
+      destination: new google.maps.LatLng(chunk[chunk.length - 1].lat, chunk[chunk.length - 1].lng),
+      waypoints,
+      travelMode: google.maps.TravelMode.WALKING,
+      optimizeWaypoints: false
+    }, (result, status) => {
+      completed += 1;
+
+      if (status === 'OK') {
+        renderer.setDirections(result);
+        const legs = result.routes[0].legs;
+        totalMeters += legs.reduce((sum, leg) => sum + leg.distance.value, 0);
+        totalSeconds += legs.reduce((sum, leg) => sum + leg.duration.value, 0);
+      } else {
+        failed = true;
+      }
+
+      if (completed === chunks.length) {
+        if (!failed && totalMeters > 0) {
+          setRouteSummary(totalMeters / 1000, totalSeconds / 60, false);
+        } else {
+          routeRenderers.forEach(r => r.setMap(null));
+          const distanceKm = fallbackRouteDistanceKm();
+          setRouteError(`estimate ${distanceKm.toFixed(1)} km`);
+          showToast('Walking route unavailable; showing stops only');
+        }
+      }
+    });
+  });
+}
+
+function placeMarkers() {
+  STOPS.forEach((stop, i) => {
+    const markerColor = stop.food ? '#7ED957' : stop.finance ? '#40C4FF' : '#FFD700';
+    const labelColor = stop.food ? '#071800' : stop.finance ? '#001018' : '#000';
+    const routePosition = getRoutePosition(i);
+    const labelText = routePosition >= 0 ? String(routePosition + 1) : String(stop.id);
+    const svgMarker = {
+      path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+      fillColor: markerColor,
+      fillOpacity: 1,
+      strokeColor: '#000',
+      strokeWeight: 1,
+      scale: 1.5,
+      anchor: new google.maps.Point(12, 24),
+      labelOrigin: new google.maps.Point(12, 9)
+    };
+
+    const marker = new google.maps.Marker({
+      position: { lat: stop.lat, lng: stop.lng },
+      map,
+      label: { text: labelText, color: labelColor, fontSize: '10px', fontWeight: '700' },
+      icon: svgMarker,
+      title: stop.name,
+      zIndex: 100 + i
+    });
+
+    marker.addListener('click', () => openStop(i));
+    markers.push(marker);
+  });
+}
+
+function openStop(idx) {
+  currentStopIdx = idx;
+  const stop = STOPS[idx];
+  const routePosition = getRoutePosition(idx);
+  visitedStops.add(idx);
+
+  document.getElementById('sheet-num').textContent = routePosition >= 0
+    ? `Route stop ${routePosition + 1} of ${ROUTE_STOP_IDS.length}${stop.finance ? ' · Finance' : stop.food ? ' · Food' : ''}`
+    : `${stop.finance ? 'Finance stop' : stop.food ? 'Food stop' : 'Stop'} ${stop.id}`;
+  document.getElementById('sheet-title').textContent = stop.name;
+  document.getElementById('sheet-subtitle').textContent = stop.type + (stop.era ? ` · Est. ${stop.era}` : '');
+
+  const financeTag = stop.finance ? '<span class="tag finance">Finance Deep Dive</span>' : '';
+  const foodTag = stop.food ? '<span class="tag food">Food Stop</span>' : '';
+  const tagClass = stop.food ? ' food' : stop.finance ? ' finance' : '';
+  const tags = financeTag + foodTag + stop.tags.map(t => `<span class="tag${tagClass}">${t}</span>`).join('');
+  document.getElementById('sheet-body').innerHTML = `
+    <div class="tag-row">${tags}</div>
+    <h3>History</h3>
+    ${renderParagraphs(stop.history)}
+    <h3>Today</h3>
+    ${renderParagraphs(stop.today)}
+    ${renderFacts(stop.facts)}
+    <h3>Visitor info</h3>
+    ${renderParagraphs(stop.current)}
+  `;
+
+  updateMarkerVisited(idx);
+  document.getElementById('sheet').classList.add('open');
+  updateCounter();
+  updateProgress();
+
+  map.panTo({ lat: stop.lat, lng: stop.lng });
+
+  document.getElementById('btn-prev').disabled = routePosition <= 0;
+  document.getElementById('btn-next').disabled = routePosition < 0 || routePosition === ROUTE_STOP_IDS.length - 1;
+  document.getElementById('btn-prev').style.opacity = routePosition <= 0 ? '0.35' : '1';
+  document.getElementById('btn-next').style.opacity = routePosition < 0 || routePosition === ROUTE_STOP_IDS.length - 1 ? '0.35' : '1';
+}
+
+function updateMarkerVisited(idx) {
+  const stop = STOPS[idx];
+  const svgVisited = {
+    path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+    fillColor: '#444',
+    fillOpacity: 1,
+    strokeColor: stop.food ? '#7ED957' : stop.finance ? '#40C4FF' : '#FFD700',
+    strokeWeight: 1.5,
+    scale: 1.5,
+    anchor: new google.maps.Point(12, 24),
+    labelOrigin: new google.maps.Point(12, 9)
+  };
+  markers[idx].setIcon(svgVisited);
+  markers[idx].setLabel({ text: '✓', color: stop.food ? '#9df578' : stop.finance ? '#73d2ff' : '#FFD700', fontSize: '10px', fontWeight: '700' });
+}
+
+function navStop(dir) {
+  if (currentStopIdx === null) return;
+  const routeIndices = getRouteIndices();
+  const routePosition = routeIndices.indexOf(currentStopIdx);
+  const next = routePosition + dir;
+  if (routePosition >= 0 && next >= 0 && next < routeIndices.length) openStop(routeIndices[next]);
+}
+
+function closeSheet() {
+  document.getElementById('sheet').classList.remove('open');
+}
+
+function openDirections() {
+  if (currentStopIdx === null) return;
+  const s = STOPS[currentStopIdx];
+  window.open(`https://maps.google.com/?q=${s.lat},${s.lng}`, '_blank');
+}
+
+function centerOnMe() {
+  if (userMarker) {
+    map.panTo(userMarker.getPosition());
+    map.setZoom(17);
+  } else {
+    showToast('GPS not yet available');
+  }
+}
+
+function toggleRoute() {
+  showRoute = !showRoute;
+  routeRenderers.forEach(renderer => renderer.setMap(showRoute ? map : null));
+  document.getElementById('btn-route').classList.toggle('active', showRoute);
+}
+
+function updateCounter() {
+  document.getElementById('stop-counter').textContent = `${visitedStops.size} / ${STOPS.length} stops`;
+}
+
+function updateProgress() {
+  const pct = (visitedStops.size / STOPS.length) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function startGPS() {
+  if (!navigator.geolocation) {
+    document.getElementById('gps-status').textContent = 'GPS unavailable';
+    return;
+  }
+
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+
+    document.getElementById('gps-dot').classList.remove('searching');
+    document.getElementById('gps-status').textContent = `±${Math.round(accuracy)}m`;
+
+    const position = { lat, lng };
+
+    if (!userMarker) {
+      userMarker = new google.maps.Marker({
+        position,
+        map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 9,
+          fillColor: '#4285F4',
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 2.5,
+        },
+        title: 'You are here',
+        zIndex: 1000
+      });
+    } else {
+      userMarker.setPosition(position);
+    }
+
+    autoDetectNearby(lat, lng);
+  }, err => {
+    document.getElementById('gps-status').textContent = 'GPS denied';
+    document.getElementById('gps-dot').classList.add('searching');
+  }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+}
+
+function autoDetectNearby(lat, lng) {
+  const THRESHOLD = 0.0003; // ~30 meters
+  STOPS.forEach((stop, i) => {
+    if (visitedStops.has(i)) return;
+    const dLat = Math.abs(stop.lat - lat);
+    const dLng = Math.abs(stop.lng - lng);
+    if (dLat < THRESHOLD && dLng < THRESHOLD) {
+      showToast(`📍 Near: ${stop.name} — tap to open`);
+    }
+  });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function openList() {
+  document.getElementById('list-overlay').classList.add('open');
+}
+
+function closeList() {
+  document.getElementById('list-overlay').classList.remove('open');
+}
+
+function renderList() {
+  const container = document.getElementById('list-scroll');
+  const routeItems = getRouteIndices().map((i, routePosition) => ({ stop: STOPS[i], i, routePosition }));
+  const renderItems = items => items.map(({ stop, i, routePosition }) => `
+    <div class="list-item" onclick="closeList(); openStop(${i})">
+      <div class="list-num ${stop.food ? 'food ' : stop.finance ? 'finance ' : ''}${visitedStops.has(i) ? 'visited' : ''}">${visitedStops.has(i) ? '✓' : routePosition + 1}</div>
+      <div class="list-info">
+        <div class="list-name">${stop.name}</div>
+        <div class="list-type">${stop.type}</div>
+      </div>
+      <span class="list-chev">›</span>
+    </div>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="list-section">Optimized route order · gold = iconic · blue = finance · green = food</div>
+    ${renderItems(routeItems)}
+  `;
+}
+
+document.getElementById('sheet').addEventListener('click', e => {
+  if (e.target === document.getElementById('sheet')) closeSheet();
+});
+
+let startY = 0;
+document.getElementById('sheet-handle').addEventListener('touchstart', e => { startY = e.touches[0].clientY; });
+document.getElementById('sheet-handle').addEventListener('touchend', e => {
+  if (e.changedTouches[0].clientY - startY > 60) closeSheet();
+});
+</script>
+
+<script async defer
+  src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&callback=initMap">
+</script>
+
+</body>
+</html>
